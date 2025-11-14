@@ -14,6 +14,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
+  trailingSlash: true,
   
   // Disable ESLint during build
   eslint: {

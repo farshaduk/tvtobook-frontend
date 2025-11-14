@@ -2076,6 +2076,9 @@ export const digitalLibraryApi = {
     
   addFromOrder: async (data: { orderId: string; orderItemId: string }): Promise<AxiosResponse<{ message: string; data: DigitalLibraryDto; isSucceeded: boolean }>> =>
     api.post('/digitallibrary/add-from-order', data),
+    
+  logPageView: async (id: string, data: { token: string; pageNumber: number }): Promise<AxiosResponse<{ message: string; data: boolean; isSucceeded: boolean }>> =>
+    api.post(`/digitallibrary/${id}/log-page-view`, data),
 };
 
 // User Address API

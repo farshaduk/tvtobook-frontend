@@ -2,9 +2,9 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, BookOpen, FileText, Headphones, Star, Loader2 } from 'lucide-react'
+import { ArrowRight, BookOpen, FileText, Headphones, Star, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Spinner, TvtoBookSpinner } from '@/components/ui/spinner'
@@ -15,6 +15,8 @@ import { toPersianNumber } from '@/utils/numberUtils'
 import { getMediaUrl } from '@/lib/utils'
 
 export default function HomePage() {
+  const carouselRef = useRef<HTMLDivElement>(null)
+  
   const { data: homepageResponse, isLoading } = useQuery({
     queryKey: ['homepage-products'],
     queryFn: async () => {
@@ -144,6 +146,13 @@ export default function HomePage() {
       {/* Products Section */}
       <section className="py-16 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
         <div className="container mx-auto px-4">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">محصولات ویژه</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              جدیدترین و محبوب‌ترین کتاب‌های ما
+            </p>
+          </div>
+          
           {isLoading ? (
             <div className="flex justify-center items-center py-16">
               <div className="text-center space-y-4">
@@ -152,19 +161,53 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-            >
-              {featuredProducts.slice(0, 12).map((product: PublicProductDto) => (
-                <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} />
-                </motion.div>
-              ))}
-            </motion.div>
+            <div className="relative">
+              <div className="overflow-hidden">
+                <div 
+                  ref={carouselRef}
+                  className="flex gap-4 overflow-x-auto scrollbar-hide pb-4" 
+                  style={{ 
+                    WebkitOverflowScrolling: 'touch'
+                  }}
+                >
+                  {featuredProducts.map((product: PublicProductDto) => (
+                    <div key={product.id} className="flex-shrink-0 w-56">
+                      <ProductCard product={product} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Navigation Arrows */}
+              {featuredProducts.length > 5 && (
+                <>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (carouselRef.current) {
+                        const scrollAmount = 240;
+                        carouselRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
+                      }
+                    }}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-full p-2 shadow-lg hover:bg-gray-50 transition-colors z-10 rtl:right-4 ltr:left-4"
+                  >
+                    <ChevronRight className="h-5 w-5 text-gray-700 rtl:rotate-180" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (carouselRef.current) {
+                        const scrollAmount = 240;
+                        carouselRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+                      }
+                    }}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-full p-2 shadow-lg hover:bg-gray-50 transition-colors z-10 rtl:left-4 ltr:right-4"
+                  >
+                    <ChevronLeft className="h-5 w-5 text-gray-700 rtl:rotate-180" />
+                  </button>
+                </>
+              )}
+            </div>
           )}
         </div>
       </section>
@@ -243,19 +286,22 @@ export default function HomePage() {
               </div>
             </div>
           ) : (
-            <motion.div
-              variants={containerVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true }}
-              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-            >
-              {featuredProducts.map((product: PublicProductDto) => (
-                <motion.div key={product.id} variants={itemVariants}>
-                  <ProductCard product={product} />
-                </motion.div>
-              ))}
-            </motion.div>
+            <div className="relative">
+              <div className="overflow-hidden">
+                <div 
+                  className="flex gap-4 overflow-x-auto scrollbar-hide pb-4" 
+                  style={{ 
+                    WebkitOverflowScrolling: 'touch'
+                  }}
+                >
+                  {featuredProducts.map((product: PublicProductDto) => (
+                    <div key={product.id} className="flex-shrink-0 w-56">
+                      <ProductCard product={product} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           )}
 
           <motion.div
@@ -323,87 +369,61 @@ function ProductCard({ product }: { product: PublicProductDto }) {
   
   return (
     <Link href={`/product?slug=${product.slug}`}>
-      <Card className="h-full hover:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] hover:shadow-primary/20 transition-all duration-700 hover:scale-[1.02] cursor-pointer group overflow-hidden bg-gradient-to-br from-background via-background to-muted/30 border-0 shadow-[0_8px_30px_rgb(0,0,0,0.12)] hover:border-primary/20 hover:border">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-lg">
+      <div className="h-full bg-white rounded-lg border border-gray-200 hover:border-primary hover:shadow-lg transition-all duration-300 overflow-hidden group">
+        <div className="relative aspect-[3/4] overflow-hidden bg-gray-50">
           <img
             src={mainImage}
             alt={product.title}
-            className="w-full h-full object-cover group-hover:scale-125 group-hover:rotate-2 transition-all duration-700 ease-out group-hover:brightness-125 group-hover:contrast-125 group-hover:saturate-125 group-hover:sepia-0 group-hover:hue-rotate-15"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
           />
           
-          {/* Multi-layer gradient overlays */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          
-          {/* Shimmer effect overlay */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1200 ease-out opacity-0 group-hover:opacity-100" />
-          
-          {/* Glow effect behind image */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/40 via-transparent to-secondary/40 opacity-0 group-hover:opacity-100 transition-opacity duration-700 blur-sm -z-10" />
-          
-          {/* Floating category badge with enhanced styling */}
-          <div className="absolute top-4 left-4">
-            <span className="px-3 py-1.5 text-xs font-bold bg-white/95 text-primary rounded-full backdrop-blur-md shadow-lg border border-white/20 group-hover:bg-primary group-hover:text-white transition-all duration-300 group-hover:scale-110 group-hover:rotate-12">
+          <div className="absolute top-2 right-2 rtl:top-2 rtl:right-2 ltr:top-2 ltr:left-2">
+            <span className="px-2 py-1 text-xs font-semibold bg-white/90 text-primary rounded-full">
               {formatType === 'physical' ? '📖 فیزیکی' : 
                formatType === 'ebook' ? '📱 الکترونیکی' : '🎧 صوتی'}
             </span>
           </div>
           
-          {/* Enhanced hover overlay with multiple actions */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-400 flex items-center justify-center">
-            <div className="transform translate-y-8 group-hover:translate-y-0 transition-transform duration-500">
-              <Button className="bg-white/95 text-black hover:bg-white shadow-xl hover:shadow-2xl transition-all duration-300 px-6 py-2 font-semibold hover:scale-110">
-                مشاهده جزئیات
-              </Button>
-            </div>
-          </div>
-          
-          {/* Subtle corner accent */}
-          <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          
-          {/* Image border glow effect */}
-          <div className="absolute inset-0 border-2 border-transparent group-hover:border-primary/50 rounded-lg transition-all duration-500" />
-          
-          {/* Pulse effect */}
-          <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 group-hover:animate-pulse transition-opacity duration-500 rounded-lg" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         </div>
         
-        <CardHeader className="pb-4 px-6 pt-6">
-          <CardTitle className="text-lg line-clamp-2 group-hover:text-primary transition-colors duration-300 font-bold leading-tight">
+        <div className="p-3">
+          <h3 className="text-sm font-semibold line-clamp-2 group-hover:text-primary transition-colors mb-1 min-h-[2.5rem]">
             {product.title}
-          </CardTitle>
-          <CardDescription className="text-sm text-muted-foreground font-medium">
+          </h3>
+          <p className="text-xs text-muted-foreground mb-2 line-clamp-1">
             {authors}
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent className="pt-0 px-6 pb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-right">
-              <span className="text-2xl font-bold text-primary bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
-                {toPersianNumber(displayPrice)} تومان
-              </span>
-              {formatType === 'ebook' && (
-                <p className="text-xs text-green-600 font-bold bg-green-50 px-2 py-1 rounded-full">فوری</p>
-              )}
+          </p>
+          
+          {product.averageRating > 0 && (
+            <div className="flex items-center gap-1 mb-2">
+              <div className="flex items-center">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-2.5 w-2.5 ${
+                      star <= Math.round(product.averageRating)
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'fill-gray-300 text-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              <span className="text-xs text-gray-600">({toPersianNumber(product.averageRating, { minimumFractionDigits: 1, maximumFractionDigits: 1 })})</span>
             </div>
+          )}
+          
+          <div className="flex items-center justify-between">
+            <span className="text-base font-bold text-primary">
+              {toPersianNumber(displayPrice)} تومان
+            </span>
           </div>
           
-          <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
-            {product.categoryName && (
-              <span className="font-semibold px-2 py-1 bg-muted/50 rounded-full">{product.categoryName}</span>
-            )}
-          </div>
-          
-          {/* Enhanced add to cart button */}
-          <Button 
-            className="w-full bg-gradient-to-r from-primary via-primary to-primary/90 hover:from-primary/90 hover:via-primary hover:to-primary shadow-lg hover:shadow-xl hover:shadow-primary/25 transition-all duration-300 font-semibold py-2.5"
-            size="sm"
-          >
-            افزودن به سبد خرید
-          </Button>
-        </CardContent>
-      </Card>
+          {formatType === 'ebook' && (
+            <p className="text-xs text-green-600 font-semibold mt-1">دانلود فوری</p>
+          )}
+        </div>
+      </div>
     </Link>
   )
 }

@@ -793,14 +793,17 @@ export default function CreateProductPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">گروه سنی</label>
-                  <input
-                    type="text"
+                  <select
                     name="ageGroup"
                     value={formData.ageGroup}
                     onChange={handleInputChange}
-                    placeholder="مثلاً: بزرگسال، نوجوان، کودک"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                  />
+                  >
+                    <option value="">انتخاب کنید</option>
+                    <option value="بزرگسال">بزرگسال</option>
+                    <option value="نوجوان">نوجوان</option>
+                    <option value="کودک">کودک</option>
+                  </select>
                 </div>
               </div>
 
@@ -978,7 +981,7 @@ export default function CreateProductPage() {
                   onChange={(e) => handleFormatChange(0, 'formatType', e.target.value as 'physical' | 'ebook' | 'audiobook')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 >
-                  <option value="physical">فیزیکی (کاغذی)</option>
+                  <option value="physical">چاپی</option>
                   <option value="ebook">کتاب الکترونیکی</option>
                   <option value="audiobook">کتاب صوتی</option>
                 </select>

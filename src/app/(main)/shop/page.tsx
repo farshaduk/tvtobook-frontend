@@ -68,13 +68,34 @@ function ShopPageContent() {
 
   const searchQuery = searchParams.get('search') || ''
   const categoryFilter = searchParams.get('category') || ''
+  const formatFilter = searchParams.get('format') || ''
 
   useEffect(() => {
     const newFilters: FilterOptions = {}
-    if (categoryFilter) newFilters.category = [categoryFilter]
+    
+    // Handle category parameter (for backward compatibility, treat as format type)
+    if (categoryFilter) {
+      // Map legacy category values to format types
+      const formatTypeMap: { [key: string]: string } = {
+        'ebook': 'EBook',
+        'audiobook': 'AudioBook',
+        'book': 'Physical',
+        'physical': 'Physical'
+      }
+      const mappedFormat = formatTypeMap[categoryFilter.toLowerCase()]
+      if (mappedFormat) {
+        newFilters.formats = [mappedFormat]
+      }
+    }
+    
+    // Handle format parameter (direct format type)
+    if (formatFilter) {
+      newFilters.formats = [formatFilter]
+    }
+    
     setFilters(newFilters)
     setCurrentPage(1)
-  }, [categoryFilter])
+  }, [categoryFilter, formatFilter])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -102,7 +123,7 @@ function ShopPageContent() {
     queryFn: async () => {
       const params: InpPublicProductListDto = {
         searchTerm: searchQuery || undefined,
-        categoryId: categoryFilter || (filters.category && filters.category.length > 0 ? (typeof filters.category[0] === 'string' ? filters.category[0] : undefined) : undefined),
+        categoryId: filters.category && filters.category.length > 0 ? (typeof filters.category[0] === 'string' ? filters.category[0] : undefined) : undefined,
         authorId: filters.authorId && filters.authorId.length > 0 ? filters.authorId[0] : undefined,
         publisherId: filters.publisherId && filters.publisherId.length > 0 ? filters.publisherId[0] : undefined,
         formatType: filters.formats && filters.formats.length > 0 ? filters.formats[0] : undefined,
@@ -370,46 +391,49 @@ function ShopPageContent() {
         </p>
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-0 rtl:flex-row-reverse">
-        {/* Mobile Filter Drawer Backdrop */}
-        {showFilters && (
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden cursor-pointer transition-opacity duration-300"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowFilters(false);
-            }}
-            onTouchEnd={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setShowFilters(false);
-            }}
-            style={{ 
-              touchAction: 'none',
-              WebkitTapHighlightColor: 'transparent'
-            }}
-            aria-label="Close filters"
-          />
-        )}
+      <div className="flex flex-col xl:flex-row-reverse gap-4 sm:gap-6 xl:gap-6">
 
         {/* Filters Sidebar */}
-        <div className={`
-          lg:w-64 xl:w-72 rtl:order-2 ltr:order-1
-          fixed lg:relative
-          top-0 bottom-0
-          rtl:right-0 ltr:left-0
-          w-80 max-w-[85vw]
-          z-50 lg:z-auto
-          transform transition-transform duration-300 ease-in-out
-          ${showFilters 
-            ? 'translate-x-0' 
-            : 'rtl:translate-x-full ltr:-translate-x-full lg:translate-x-0'
-          }
-          ${showFilters ? 'block' : 'hidden lg:block'}
+        <aside className={`
+          xl:w-64 2xl:w-72 flex-shrink-0
+          xl:sticky xl:top-4 xl:self-start
+          xl:order-2
+          ${showFilters ? 'fixed' : 'hidden xl:block'}
+          ${showFilters ? 'inset-0 xl:inset-auto' : ''}
+          z-50 xl:z-auto
         `}>
-          <div className="h-full lg:h-auto flex flex-col bg-white border-r border-gray-200 lg:pr-0">
-            <div className="flex-shrink-0 border-b border-gray-200 px-3 py-2.5 mb-2">
+          {/* Mobile: Full overlay with drawer */}
+          {showFilters && (
+            <div className="xl:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowFilters(false);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setShowFilters(false);
+              }}
+              style={{ 
+                touchAction: 'none',
+                WebkitTapHighlightColor: 'transparent'
+              }}
+              aria-label="Close filters"
+            />
+          )}
+          
+          {/* Filter Panel */}
+          <div className={`
+            ${showFilters ? 'fixed xl:static' : 'hidden xl:block'}
+            ${showFilters ? 'top-0 bottom-0 rtl:right-0 ltr:left-0' : ''}
+            ${showFilters ? 'w-80 max-w-[85vw] xl:w-auto' : ''}
+            ${showFilters ? 'z-50 xl:z-auto' : ''}
+            ${showFilters ? 'animate-in slide-in-from-right xl:animate-none' : ''}
+            h-full xl:max-h-[calc(100vh-2rem)] flex flex-col bg-white 
+            border-r xl:border border-gray-200 xl:rounded-lg xl:shadow-sm overflow-hidden
+          `}>
+            <div className="flex-shrink-0 border-b border-gray-200 px-3 py-2.5">
               <div className="flex items-center justify-between text-right">
                 <span className="text-base font-normal text-gray-900">
                 فیلترها
@@ -427,7 +451,7 @@ function ShopPageContent() {
                     e.stopPropagation();
                     setShowFilters(false);
                   }}
-                  className="lg:hidden h-7 w-7 p-0 touch-manipulation active:scale-90 select-none"
+                  className="xl:hidden h-7 w-7 p-0 touch-manipulation active:scale-90 select-none"
                   style={{ 
                     touchAction: 'manipulation',
                     WebkitTapHighlightColor: 'transparent',
@@ -440,7 +464,7 @@ function ShopPageContent() {
                 </Button>
               </div>
             </div>
-            <div className="space-y-4 flex-1 overflow-y-auto px-3 pb-4">
+            <div className="space-y-4 flex-1 overflow-y-auto px-3 py-4">
               {/* Category Filter */}
               <div className="pb-4 border-b border-gray-200 last:border-b-0 last:pb-0">
                 <h3 className="text-sm font-bold mb-2 text-right text-gray-900 uppercase tracking-wide">
@@ -665,18 +689,19 @@ function ShopPageContent() {
               </button>
             </div>
           </div>
-        </div>
+        </aside>
 
         {/* Main Content */}
-        <div className="flex-1 min-w-0 rtl:order-1 ltr:order-2 rtl:-ml-px ltr:-mr-px">
+        <div className="flex-1 min-w-0 xl:order-1">
           {/* Mobile Filter Button */}
-          <div className="mb-3 sm:mb-4 lg:hidden">
+          <div className="mb-3 sm:mb-4 xl:hidden">
               <Button
                 variant="outline"
                 onClick={() => setShowFilters(!showFilters)}
               className="relative text-sm px-3 py-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50"
             >
               <Filter className="h-4 w-4 ml-1.5 rtl:ml-1.5 rtl:mr-0" />
+              فیلترها
               {activeFilterCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 rtl:-right-1.5 ltr:-left-1.5 bg-primary text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-semibold">
                   {activeFilterCount}
@@ -924,91 +949,94 @@ function ProductCard({ product, viewMode }: { product: PublicProductDto; viewMod
 
   return (
     <Link href={`/product?slug=${product.slug}`}>
-      <div className="h-full flex flex-col border border-gray-200 bg-white shadow-sm hover:border-gray-300 hover:shadow-lg transition-all cursor-pointer group">
-        <div className="flex flex-col h-full">
-          <div className="flex-shrink-0 w-full h-48 mb-3 overflow-hidden bg-gray-50 flex items-center justify-center p-2 relative">
+      <div className="h-full bg-white rounded-lg border border-gray-200 hover:border-primary hover:shadow-lg transition-all duration-300 overflow-hidden group">
+        <div className="relative aspect-[3/4] overflow-hidden bg-gray-50">
           <img
             src={mainImage}
             alt={product.title}
-              className="max-w-full max-h-full object-contain transition-transform duration-300 group-hover:scale-110"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+          />
+          
+          <div className="absolute top-2 right-2 rtl:top-2 rtl:right-2 ltr:top-2 ltr:left-2">
+            <span className="px-2 py-1 text-xs font-semibold bg-white/90 text-primary rounded-full">
+              {formatType === 'physical' ? '📖 فیزیکی' : 
+               formatType === 'ebook' ? '📱 الکترونیکی' : '🎧 صوتی'}
+            </span>
           </div>
           
-          <div className="flex-1 flex flex-col min-h-0 px-3 pb-3">
-            <h3 className="text-sm line-clamp-2 group-hover:text-primary transition-colors font-medium leading-snug mb-1.5 text-gray-900 min-h-[2.5rem]">
-              {product.title}
-            </h3>
-            <p className="text-xs text-gray-600 mb-2 line-clamp-1">
-              {authors}
-            </p>
-            
-            {product.averageRating > 0 ? (
-              <div className="flex items-center gap-1 mb-2">
-                <div className="flex items-center">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={`h-3.5 w-3.5 ${
-                        star <= Math.round(product.averageRating)
-                          ? 'fill-yellow-400 text-yellow-400'
-                          : 'fill-gray-300 text-gray-300'
-                      }`}
-                    />
-                  ))}
-            </div>
-                <span className="text-xs text-gray-600">({toPersianNumber(product.averageRating, { minimumFractionDigits: 1, maximumFractionDigits: 1 })})</span>
-          </div>
-            ) : (
-              <div className="h-5 mb-2"></div>
-            )}
-            
-            <div className="mt-auto">
-              <div className="mb-3">
-                <div className="flex flex-col gap-1">
-                  {hasRealDiscount && originalPrice && originalPrice > displayPrice ? (
-                    <>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-gray-400 line-through">{toPersianNumber(originalPrice)} تومان</span>
-                        {discountPercentage && discountPercentage > 0 && (
-                          <span className="text-xs text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded">{toPersianNumber(discountPercentage)}% تخفیف</span>
-                        )}
-                      </div>
-                      <span className="text-base font-semibold text-gray-900">
-                        {toPersianNumber(displayPrice)} تومان
-                      </span>
-                    </>
-                  ) : (
-                    <span className="text-base font-semibold text-gray-900">
-                      {toPersianNumber(displayPrice)} تومان
-                    </span>
-                  )}
-                  {formatType === 'ebook' && (
-                    <span className="text-xs text-green-700 font-medium bg-green-50 px-2 py-0.5 rounded">دانلود فوری</span>
-                  )}
-            </div>
-          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        </div>
+        
+        <div className="p-3">
+          <h3 className="text-sm font-semibold line-clamp-2 group-hover:text-primary transition-colors mb-1 min-h-[2.5rem]">
+            {product.title}
+          </h3>
+          <p className="text-xs text-muted-foreground mb-2 line-clamp-1">
+            {authors}
+          </p>
           
-              <div className="flex gap-2">
-                <Button 
-                  className="flex-1 bg-[#aa0001] hover:bg-[#880001] text-white px-2 py-2 text-xs font-medium rounded-md shadow-sm hover:shadow transition-all"
-                  size="sm"
-                  onClick={handleQuickAdd}
-                >
-                  افزودن به سبد
-                </Button>
-                <Button 
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-2 text-xs font-medium rounded-md transition-all"
-                  size="sm"
-                  onClick={handleViewDetails}
-                >
-                  جزئیات
-                </Button>
+          {product.averageRating > 0 && (
+            <div className="flex items-center gap-1 mb-2">
+              <div className="flex items-center">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star
+                    key={star}
+                    className={`h-2.5 w-2.5 ${
+                      star <= Math.round(product.averageRating)
+                        ? 'fill-yellow-400 text-yellow-400'
+                        : 'fill-gray-300 text-gray-300'
+                    }`}
+                  />
+                ))}
               </div>
+              <span className="text-xs text-gray-600">({toPersianNumber(product.averageRating, { minimumFractionDigits: 1, maximumFractionDigits: 1 })})</span>
             </div>
+          )}
+          
+          <div className="mb-2">
+            <div className="flex flex-col gap-1">
+              {hasRealDiscount && originalPrice && originalPrice > displayPrice ? (
+                <>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs text-gray-400 line-through">{toPersianNumber(originalPrice)} تومان</span>
+                    {discountPercentage && discountPercentage > 0 && (
+                      <span className="text-xs text-red-600 font-medium bg-red-50 px-2 py-0.5 rounded">{toPersianNumber(discountPercentage)}% تخفیف</span>
+                    )}
+                  </div>
+                  <span className="text-base font-bold text-primary">
+                    {toPersianNumber(displayPrice)} تومان
+                  </span>
+                </>
+              ) : (
+                <span className="text-base font-bold text-primary">
+                  {toPersianNumber(displayPrice)} تومان
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {formatType === 'ebook' && (
+            <p className="text-xs text-green-600 font-semibold mb-2">دانلود فوری</p>
+          )}
+          
+          <div className="flex gap-2">
+            <Button 
+              className="flex-1 bg-[#aa0001] hover:bg-[#880001] text-white px-2 py-2 text-xs font-medium rounded-md shadow-sm hover:shadow transition-all"
+              size="sm"
+              onClick={handleQuickAdd}
+            >
+              افزودن به سبد
+            </Button>
+            <Button 
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-2 text-xs font-medium rounded-md transition-all"
+              size="sm"
+              onClick={handleViewDetails}
+            >
+              جزئیات
+            </Button>
           </div>
         </div>
-          </div>
+      </div>
     </Link>
   )
 }

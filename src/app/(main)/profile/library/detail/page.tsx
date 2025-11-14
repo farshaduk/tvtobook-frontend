@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Download, BookOpen, Headphones, FileText, Loader2, Bookmark, BookmarkPlus, X, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Headphones, FileText, Loader2, Bookmark, BookmarkPlus, X, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,6 +12,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToastHelpers } from '@/hooks/useToastHelpers';
 import { digitalLibraryApi, bookmarkApi, readingProgressApi, BookmarkDto, CreateBookmarkRequest } from '@/services/api';
 import { TvtoBookSpinner } from '@/components/ui/spinner';
+import { RestrictedPdfViewer } from '@/components/RestrictedPdfViewer';
+import { ImagePdfViewer } from '@/components/ImagePdfViewer';
 
 function DigitalReaderContent() {
   const searchParams = useSearchParams();
@@ -29,6 +31,9 @@ function DigitalReaderContent() {
   const [bookmarkDescription, setBookmarkDescription] = useState('');
   const [bookmarkPageNumber, setBookmarkPageNumber] = useState(1);
   const [bookmarkChapter, setBookmarkChapter] = useState('');
+  const [currentPdfPage, setCurrentPdfPage] = useState(1);
+  const [totalPdfPages, setTotalPdfPages] = useState(0);
+  const [navigateToPage, setNavigateToPage] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch library item details
@@ -100,6 +105,24 @@ function DigitalReaderContent() {
     },
   });
 
+  // Update reading progress mutation
+  const updateProgressMutation = useMutation({
+    mutationFn: (data: { currentPage: number; totalPages: number }) => 
+      readingProgressApi.update({
+        productId: libraryItem?.productId || '',
+        digitalLibraryId: libraryId,
+        currentPage: data.currentPage,
+        totalPages: data.totalPages,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reading-progress'] });
+      queryClient.invalidateQueries({ queryKey: ['my-reading-progress'] });
+    },
+    onError: (error: any) => {
+      console.error('Error updating reading progress:', error);
+    },
+  });
+
   // Reset fetch flag when libraryId changes
   useEffect(() => {
     hasFetchedRef.current = false;
@@ -151,33 +174,13 @@ function DigitalReaderContent() {
     }
   }, [libraryId, user?.id, libraryItem]);
 
-  const handleDownload = async () => {
-    if (!libraryId || !accessToken) {
-      toast.errorPersian('فایل در دسترس نیست');
-      return;
+  // Reset navigateToPage after navigation is triggered
+  useEffect(() => {
+    if (navigateToPage !== null && currentPdfPage === navigateToPage) {
+      // Reset after successful navigation
+      setNavigateToPage(null);
     }
-
-    try {
-      // Construct download URL with download=true parameter
-      const apiBaseUrl = typeof window !== 'undefined' 
-        ? (window.location.hostname === 'localhost' ? 'http://localhost:7262/api' : 'http://dev.tvtobook.com/api')
-        : 'http://dev.tvtobook.com/api';
-      const downloadUrl = `${apiBaseUrl}/digitallibrary/${libraryId}/file?token=${encodeURIComponent(accessToken)}&download=true`;
-      
-      // Create a temporary link and trigger download
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `${libraryItem?.productTitle || 'file'}.${libraryItem?.fileType || 'pdf'}`;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast.successPersian('در حال دانلود...');
-    } catch (error: any) {
-      toast.errorPersian('خطا در دانلود فایل');
-    }
-  };
+  }, [navigateToPage, currentPdfPage]);
 
   const handleCreateBookmark = () => {
     if (!libraryItem?.productId) {
@@ -211,24 +214,25 @@ function DigitalReaderContent() {
   const handleNavigateToBookmark = (pageNumber: number) => {
     if (!fileUrl) return;
     
-    // For PDFs, use URL fragment to navigate to page
+    // For PDFs, trigger navigation to the specified page
     const formatType = libraryItem?.formatType?.toLowerCase();
     const isEbookFormat = formatType === 'ebook';
     
-    const iframe = document.querySelector('iframe');
-    if (iframe && isEbookFormat) {
-      // Try to navigate to the page in the PDF
-      const newUrl = `${fileUrl}#page=${pageNumber}`;
-      iframe.src = newUrl;
+    if (isEbookFormat) {
+      // Trigger page navigation in PDF.js viewer
+      setNavigateToPage(pageNumber);
       setShowBookmarksList(false);
       toast.successPersian(`رفتن به صفحه ${pageNumber}`);
-    } else if (isEbookFormat) {
+    } else {
       toast.errorPersian('امکان پرش به صفحه در حال حاضر در دسترس نیست');
     }
   };
 
   const handleOpenBookmarkModal = () => {
-    if (readingProgress?.currentPage) {
+    // Use current PDF page if available, otherwise use reading progress
+    if (currentPdfPage > 0) {
+      setBookmarkPageNumber(currentPdfPage);
+    } else if (readingProgress?.currentPage) {
       setBookmarkPageNumber(readingProgress.currentPage);
     }
     if (readingProgress?.currentChapter) {
@@ -318,14 +322,6 @@ function DigitalReaderContent() {
               >
                 <BookmarkPlus className="h-4 w-4" />
                 افزودن نشانک
-              </Button>
-              <Button
-                onClick={handleDownload}
-                disabled={!fileUrl || isLoadingFile}
-                className="flex items-center gap-2"
-              >
-                <Download className="h-4 w-4" />
-                دانلود
               </Button>
             </div>
           </div>
@@ -553,15 +549,46 @@ function DigitalReaderContent() {
         ) : fileUrl ? (
           <div className="bg-white rounded-lg shadow-lg overflow-hidden">
             {isEbook ? (
-              <div className="w-full" style={{ height: 'calc(100vh - 200px)' }}>
-                <iframe
-                  src={fileUrl}
-                  className="w-full h-full border-0"
-                  title={libraryItem.productTitle}
+              <div 
+                className="w-full select-none relative" 
+                style={{ 
+                  height: 'calc(100vh - 200px)',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none'
+                }}
+                onContextMenu={(e) => e.preventDefault()}
+                onKeyDown={(e) => {
+                  // Prevent Ctrl+S (Save), Ctrl+P (Print), Ctrl+C (Copy)
+                  if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'p' || e.key === 'c')) {
+                    e.preventDefault();
+                  }
+                }}
+                tabIndex={0}
+              >
+                <ImagePdfViewer
+                  libraryId={libraryId}
+                  token={accessToken || ''}
+                  onPageChange={(page, total) => {
+                    // Update local state to track current page
+                    setCurrentPdfPage(page);
+                    setTotalPdfPages(total);
+                    
+                    // Update reading progress when page changes
+                    if (libraryItem?.productId) {
+                      updateProgressMutation.mutate({
+                        currentPage: page,
+                        totalPages: total,
+                      });
+                    }
+                  }}
+                  isLoading={isLoadingFile}
+                  goToPage={navigateToPage}
                 />
               </div>
             ) : isAudiobook ? (
-              <div className="p-8">
+              <div className="p-8" onContextMenu={(e) => e.preventDefault()}>
                 <div className="max-w-2xl mx-auto">
                   <div className="text-center mb-8">
                     <Headphones className="h-16 w-16 mx-auto mb-4 text-purple-600" />
@@ -572,8 +599,10 @@ function DigitalReaderContent() {
                   </div>
                   <audio
                     controls
+                    controlsList="nodownload noplaybackrate"
                     className="w-full"
                     src={fileUrl}
+                    onContextMenu={(e) => e.preventDefault()}
                   >
                     مرورگر شما از پخش صوتی پشتیبانی نمی‌کند.
                   </audio>
@@ -582,12 +611,6 @@ function DigitalReaderContent() {
             ) : (
               <div className="p-8 text-center">
                 <p className="text-gray-600">فرمت فایل پشتیبانی نمی‌شود</p>
-                <Button
-                  onClick={handleDownload}
-                  className="mt-4"
-                >
-                  دانلود فایل
-                </Button>
               </div>
             )}
           </div>
